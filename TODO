@@ -4,6 +4,5 @@ CLI/configuration option: listen backlog for TCP clients
 Timeout for idle TCP clients (use shutdown(2) to generate POLLHUP events).
 error feedback for net communication startup problems (bind etc)
 renew base addresses for hash/otip
-sometimes there are sigsegv during the termination.
 round robin for forwarding timeouts or errors?
 multiple AAAA base addr for otip/hash?
