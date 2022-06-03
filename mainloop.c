@@ -194,7 +194,7 @@ void process_tlfd(void) {
 
 /* There is data in tcpq to the forwarding server */
 static void wake_tcp(void) {
-	/* if the connection to the server is not active, do a asynch conneect */
+	/* if the connection to the server is not active, do a asynch connect */
 	struct epoll_event ev = {
 		.events=POLLIN | POLLOUT,
 		.data.ptr = &tffd[fwdaddr_rr]
@@ -355,11 +355,11 @@ void mainloop(struct ioth *_rstack, struct ioth *_fstack, struct in6_addr *_fwda
 				process_uffd();
 			else if (event->data.ptr == &tlfd)     // TCP new client connection
 				process_tlfd();
-			else if (event->data.ptr == &tffd[0])     // TCP data from the server
+			else if (event->data.ptr == &tffd[0])     // TCP data from the server 0
 				process_tffd(0, event->events);
-			else if (event->data.ptr == &tffd[1])     // TCP data from the server
+			else if (event->data.ptr == &tffd[1])     // TCP data from the server 1
 				process_tffd(1, event->events);
-			else if (event->data.ptr == &tffd[2])     // TCP data from the server
+			else if (event->data.ptr == &tffd[2])     // TCP data from the server 2
 				process_tffd(2, event->events);
 			else                                   // TCP data from a client
 				process_trfd(event->data.ptr);

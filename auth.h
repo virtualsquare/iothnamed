@@ -27,7 +27,7 @@ struct iothdns_pkt;
 struct iothdns_header;
 struct in6_addr;
 
-/* give a name to a net (addreess space) */
+/* give a name to a net (address space) */
 int auth_add_net(const char *name, const char *net);
 
 /* add an authorization for op == type to the networks 'net' (which is a comma sep list) */

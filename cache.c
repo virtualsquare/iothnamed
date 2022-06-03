@@ -85,6 +85,7 @@ __attribute__((constructor))
 
 
 /* name list item */
+/* k prefix stands for cache. cname would have beeen ambiguous */
 struct kname {
 	struct nl_list_head name_list;
 	struct nl_list_head namerr_head;
@@ -123,6 +124,8 @@ struct krr {
 	union krru krru[];
 };
 
+#define ADD_IF_MISSING 1
+#define DO_NOT_ADD_IF_MISSING 0
 /* search a name item in a name-list, add it if 'add_if_missing' is true */
 static struct kname *getkname(struct nl_list_head *head, const char *name, int add_if_missing) {
 	struct kname *scan;
@@ -149,7 +152,9 @@ static void addkrr(struct krr *new) {
 		if (scan->type == new->type && scan->len == new->len &&
 				memcmp(&scan->rru, &new->rru, scan->len) == 0) {
 			/* renew an existing rr */
-			scan->expire = new->expire; /* XXX or the furthest in the future? */
+			scan->expire = new->expire;
+			/* or the furthest in the future?
+			 * NO: if the ttl has been reduced expire must be updated consistently */
 			nl_list_del(&scan->rr_list);
 			free(new);
 			new = scan;
@@ -166,7 +171,7 @@ static void addkrr(struct krr *new) {
 }
 
 /* add a cache resource record
- * (common code for cache_add and cache_static_add) */
+ * (common code for cache_add, cache_static_add and cache_hrev_add) */
 static int _cache_add(struct nl_list_head *head, const char *name, uint16_t type,
 		time_t expire, va_list ap) {
 	struct krr *new = NULL;
@@ -210,7 +215,7 @@ static int _cache_add(struct nl_list_head *head, const char *name, uint16_t type
 	}
 	va_end(ap);
 	if (new) {
-		if ((new->kname = getkname(head, name, 1)) == NULL)
+		if ((new->kname = getkname(head, name, ADD_IF_MISSING)) == NULL)
 			return free(new), -1;
 		new->type = type;
 		new->len = len;
@@ -320,13 +325,13 @@ static inline time_t minttl(time_t expire, time_t now) {
 }
 
 /* try to satisfy a query using the cache.
- * (common code for cache_get ans cache_static_get) */
+ * (common code for cache_get, cache_static_get and cache_hrev_get) */
 static struct iothdns_pkt *_cache_get(struct iothdns_pkt *rpkt,
 		struct nl_list_head *head, struct iothdns_header *h, int is_cache) {
 	time_t nowtime = now();
 	struct iothdns_header rh = *h;
 	pthread_mutex_lock(&cachemutex);
-	struct kname *kname = getkname(head, rh.qname, 0);
+	struct kname *kname = getkname(head, rh.qname, DO_NOT_ADD_IF_MISSING);
 	if (kname) {
 		struct krr *scan;
 		nl_list_for_each_entry(scan, &kname->namerr_head, namerr_list) {
@@ -382,7 +387,7 @@ static const char * _cache_get_kname(struct iothdns_pkt *rpkt, struct nl_list_he
 	time_t nowtime = now();
 	const char *cname = NULL;
 	pthread_mutex_lock(&cachemutex);
-	struct kname *kname = getkname(head, h->qname, 0);
+	struct kname *kname = getkname(head, h->qname, DO_NOT_ADD_IF_MISSING);
   if (kname) {
     struct krr *scan;
     nl_list_for_each_entry(scan, &kname->namerr_head, namerr_list) {

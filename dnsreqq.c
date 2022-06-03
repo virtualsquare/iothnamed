@@ -20,7 +20,6 @@
  *
  */
 
-#include <stdio.h> //XXX
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -73,6 +72,8 @@ int dnsreq_put(uint16_t clientid, const char *name, uint16_t qtype,
 	uint16_t serverid = random();
 	int i;
 	pthread_mutex_lock(&reqmutex);
+	/* linear probing on retab. In this way the matching reply
+	 * can be found in O(1) time */
 	for (i = 0; i < MAXREQ; i++, serverid++) {
 		if (reqtab[serverid % MAXREQ] == NULL)
 			break;
@@ -106,19 +107,19 @@ static void dnsreq_del(struct dnsreq *this) {
 }
 
 int dnsreq_get(uint16_t serverid, const char *name, uint16_t qtype,
-		int *fd, struct sockaddr *dest_addr, socklen_t *addrlen) {
+		int *fd, struct sockaddr *client_addr, socklen_t *clientlen) {
 	struct dnsreq *this = reqtab[serverid % MAXREQ];
 	pthread_mutex_lock(&reqmutex);
-	if (this == NULL || qtype != this->qtype || serverid != this->serverid || 
+	if (this == NULL || qtype != this->qtype || serverid != this->serverid ||
 			simple_stringhash(name) != this->namehash)
 		err_return(ENOENT);
 	uint16_t clientid = this->clientid;
-	if (dest_addr != NULL) {
-		if (this->salen > *addrlen)
+	if (client_addr != NULL) {
+		if (this->salen > *clientlen)
 			err_return(EINVAL);
 		else {
-			*addrlen = this->salen;
-			memcpy(dest_addr, this->sa, this->salen);
+			*clientlen = this->salen;
+			memcpy(client_addr, this->sa, this->salen);
 		}
 	}
 	*fd = this->fd;

@@ -162,7 +162,7 @@ int parsercfile(char *path) {
 	size_t len;
 	for (int lineno = 1; getline(&line, &len, f) > 0; lineno++) { //foreach line
 		char *scan = line;
-		while (*scan && strchr("\t ", *scan)) scan++; //ship heading spaces
+		while (*scan && strchr("\t ", *scan)) scan++; //skip heading spaces
 		if (strchr("#\n", *scan)) continue; // comments and empty lines
 		int len = strlen(scan);
 		char optname[len], value[len];

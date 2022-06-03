@@ -34,6 +34,11 @@
 #include <utils.h>
 #include <auth.h>
 
+/* definition of uintnets_t, a bitmap for address to net mapping
+ * NETS=8 --> uintnets_t is uint8_t
+ * NETS=16 --> uintnets_t is uint16_t
+ * NETS=32 --> uintnets_t is uint32_t
+ * NETS=64 --> uintnets_t is uint64_t */
 #define NETS 64  // this can be 8, 16, 32 or 64
 #define __NETSTYPE(N) uint ## N ## _t
 #define _NETSTYPE(N) __NETSTYPE(N)
@@ -60,6 +65,7 @@ static struct net *netlist[NETS];
 /* find the index of the address space given its name.
 	 add a new address space if add = ADD_IF_MISSING */
 #define ADD_IF_MISSING 1
+#define DO_NOT_ADD_IF_MISSING 0
 static int getnet (const char *name, int add) {
 	int i;
 	for (i = 0; i < numnets; i++) {
@@ -74,11 +80,11 @@ static int getnet (const char *name, int add) {
 		return errno = ENOENT, -1;
 }
 
-/* add a netowrk (address/mask) to an address space */
+/* add a network (address/mask) to an address space */
 int auth_add_net(const char *name, const char *net) {
 	struct in6_addr addr;
 	unsigned prefix;
-	char saddr[strlen(net)];
+	char saddr[strlen(net) + 1];
 	pthread_mutex_lock(&confmutex);
 	if (sscanf(net, "%[^/]/%u", saddr, &prefix) != 2)
 		err_return(EINVAL);
@@ -89,6 +95,8 @@ int auth_add_net(const char *name, const char *net) {
 	if (prefix  > 128)
 		err_return(EINVAL);
 	int netindex = getnet(name, ADD_IF_MISSING);
+	if (netindex < 0)
+		err_return(ENOMEM);
 	struct net *this = malloc(sizeof(*this));
 	if (this == NULL)
 		err_return(ENOMEM);
@@ -131,7 +139,7 @@ static uintnets_t cknetnames(const char *names) {
 	char *scan, *this;
 	snprintf(namecp, namelen, "%s", names);
 	for (char *s = namecp ; (this = strtok_r(s, ",", &scan)) != NULL; s = NULL) {
-		int net = getnet(this, 0);
+		int net = getnet(this, DO_NOT_ADD_IF_MISSING);
 		if (net < 0) return errno = EINVAL, -1;
 		rv |= (1 << net);
 	}
@@ -139,11 +147,11 @@ static uintnets_t cknetnames(const char *names) {
 }
 
 #define _AUTH_TAGS_ITEM(X, Y) #X
-char *auth_labels[AUTH_TAGS_COUNT] = { AUTH_TAGS };
+static char *auth_labels[AUTH_TAGS_COUNT] = { AUTH_TAGS };
 #undef _AUTH_TAGS_ITEM
 
 #define _AUTH_TAGS_ITEM(X, Y) Y
-uint8_t auth_args[AUTH_TAGS_COUNT] = { AUTH_TAGS };
+static uint8_t auth_args[AUTH_TAGS_COUNT] = { AUTH_TAGS };
 #undef _AUTH_TAGS_ITEM
 
 static uint8_t auth_active[AUTH_TAGS_COUNT];
@@ -157,6 +165,7 @@ struct auth_item {
 	char *pwd;
 };
 
+/* head and tail of the auth list */
 struct auth_item *authh, *autht;
 
 /* strdup avoiding the final dot */
@@ -179,17 +188,6 @@ int auth_add_auth(const char *type_string, const char *nets, const char *name, s
 	errno = 0;
 	uintnets_t netsmask = cknetnames(nets);
 	if (errno) err_return(errno);
-	/*
-	struct in6_addr *taddr = NULL;
-	if (auth_args[type] & AUTH_HAS_ADDR) {
-		taddr = malloc(sizeof(*taddr));
-		if (taddr == NULL) err_return(ENOMEM);
-		if (inet_ptonx(AF_INET6, addr, taddr) != 1) {
-			free(taddr);
-			err_return(EINVAL);
-		}
-	}
-	*/
 	struct auth_item *new = malloc(sizeof(*new));
 	if (new == NULL) {
 		err_return(EINVAL);

@@ -105,7 +105,7 @@ const char *inet_ntor(int af, const void *src, char *dst, socklen_t size) {
  * 10.20.30.40 prefix = 32 => result = "40.30.20.10.in-addr.arpa"
  * 10.20.30.40 prefix = 24 => result = ".30.20.10.in-addr.arpa"
  * 10.20.30.40 prefix = 16 => result = ".20.10.in-addr.arpa"
- * 10.20.30.40 prefix = 8 => result = ".in-addr.arpa"
+ * 10.20.30.40 prefix = 8 => result = ".10.in-addr.arpa"
  * 2001::3:4 pref 128 => "4.0.0.0.3.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.1.0.0.2.ip6.arpa"
  * 2001::3:4 pref 124 => ".0.0.0.3.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.1.0.0.2.ip6.arpa"
  * 2001::3:4 pref 120 => ".0.0.3.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.1.0.0.2.ip6.arpa"

@@ -57,6 +57,7 @@ long ms_to_nexttick(void) {
 }
 
 #if 0
+/* test code */
 #include <stdio.h>
 #include <unistd.h>
 #include <poll.h>
