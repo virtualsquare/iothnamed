@@ -31,6 +31,12 @@
 #include <process_dns_req.h>
 
 #define FWD_PKT_TAG ((struct iothdns_pkt *) 0x1)
+static int hashttl = 600;
+
+void process_dns_req_set_hashttl(int ttl) {
+	if (ttl >= 0)
+		hashttl = ttl;
+}
 
 static struct iothdns_pkt *cb (uint8_t type, struct in6_addr *fromaddr,
 		struct in6_addr *baseaddr, char *pwd, struct iothdns_header *h) {
@@ -65,13 +71,13 @@ static struct iothdns_pkt *cb (uint8_t type, struct in6_addr *fromaddr,
 			if (h->qtype == IOTHDNS_TYPE_AAAA || h->qtype == IOTHDNS_TYPE_ANY) {
 				struct in6_addr addr = *baseaddr;
 				iothaddr_hash(&addr, h->qname, NULL, 0);
-				struct iothdns_rr rr = {h->qname, IOTHDNS_TYPE_AAAA, IOTHDNS_CLASS_IN, 600, 0};
+				struct iothdns_rr rr = {h->qname, IOTHDNS_TYPE_AAAA, IOTHDNS_CLASS_IN, hashttl, 0};
 				iothdns_put_rr(IOTHDNS_SEC_ANSWER, rpkt, &rr);
 				iothdns_put_aaaa(rpkt, &addr);
 				if (auth_isactive(AUTH_HREV) && auth_hashrev_check(&addr, fromaddr)) {
 					time_t nowtime = now();
 					char buf[INET6_REVSTRLEN];
-					cache_hrev_add(inet_ntor(AF_INET6, &addr, buf, INET6_REVSTRLEN), IOTHDNS_TYPE_PTR, nowtime + 600, h->qname);
+					cache_hrev_add(inet_ntor(AF_INET6, &addr, buf, INET6_REVSTRLEN), IOTHDNS_TYPE_PTR, nowtime + hashttl, h->qname);
 				}
 			}
 			break;

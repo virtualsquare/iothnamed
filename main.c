@@ -47,6 +47,57 @@ static int stropt_spaces(const char *input, char **tags, char *buf) {
 	return stroptx(input, "'\"\\", " \t", 0, tags, NULL, buf);
 }
 
+static int conf_parse_option(char *entry) {
+  int tagc = stropt_spaces(entry, NULL, NULL);
+  if (tagc < 1)
+    return errno = EINVAL, -1;
+  else {
+    char *tags[tagc];
+    stropt_spaces(entry, tags, entry);
+    switch(strcase_tolower(tags[0])) {
+			case STRCASE(h,r,e,v,m,o,d,e):
+				if (tagc != 3)
+					return errno = EINVAL, -1;
+				switch(strcase_tolower(tags[1])) {
+					case STRCASE(a,l,w,a,y,s):
+						auth_hashrev_setmode(HASHREV_ALWAYS);
+						break;
+					case STRCASE(n,e,t):
+						auth_hashrev_setmode(HASHREV_NET);
+						break;
+					case STRCASE(s,a,m,e):
+						auth_hashrev_setmode(HASHREV_SAME);
+						break;
+					case STRCASE(n,e,v,e,r):
+						auth_hashrev_setmode(HASHREV_NEVER);
+						break;
+					default:
+						return errno = EINVAL, -1;
+				}
+				break;
+			case STRCASE(h,a,s,h,t,t,l):
+				if (tagc != 3)
+					return errno = EINVAL, -1;
+				mainloop_set_hashttl(strtol(tags[1], NULL, 10));
+				break;
+			case STRCASE(t,c,p,l,i,s,t,e,n):
+				if (tagc != 3)
+					return errno = EINVAL, -1;
+				mainloop_set_tcp_listen_backlog(strtol(tags[1], NULL, 10));
+				break;
+#if 0
+			case STRCASE(t,c,p,t,i,m,e,o,u,t):
+				if (tagc != 3)
+					return errno = EINVAL, -1;
+				break;
+#endif
+			default:
+				return errno = EINVAL, -1;
+		}
+	}
+	return 0;
+}
+
 static int conf_parse_static(char *entry) {
 	int tagc = stropt_spaces(entry, NULL, NULL);
 	if (tagc < 3)
@@ -174,45 +225,45 @@ int parsercfile(char *path) {
 					if (rstack == NULL && fstack == NULL) {
 						if ((rstack = fstack = ioth_newstackc(value)) == NULL) {
 							printlog(LOG_ERR, "%s (line %d): %s error opening stack", path, lineno, optname);
-							errno = EINVAL, retvalue |= -1;
+							errno = EINVAL, retvalue = -1;
 						}
 					} else {
 						printlog(LOG_ERR, "%s (line %d): %s can be defined only once", path, lineno, optname);
-						errno = EINVAL, retvalue |= -1;
+						errno = EINVAL, retvalue = -1;
 					}
 					break;
 				case STRCASE(r,s,t,a,c,k):
 					if (rstack == NULL) {
 						if ((rstack = ioth_newstackc(value)) == NULL) {
 							printlog(LOG_ERR, "%s (line %d): %s error opening stack", path, lineno, optname);
-							errno = EINVAL, retvalue |= -1;
+							errno = EINVAL, retvalue = -1;
 						}
 					} else {
 						printlog(LOG_ERR, "%s (line %d): %s can be defined only once", path, lineno, optname);
-						errno = EINVAL, retvalue |= -1;
+						errno = EINVAL, retvalue = -1;
 					}
 					break;
 				case STRCASE(f,s,t,a,c,k):
 					if (fstack == NULL) {
 						if ((fstack = ioth_newstackc(value)) == NULL) {
 							printlog(LOG_ERR, "%s (line %d): %s error opening stack", path, lineno, optname);
-							errno = EINVAL, retvalue |= -1;
+							errno = EINVAL, retvalue = -1;
 						}
 					} else {
 						printlog(LOG_ERR, "%s (line %d): %s can be defined only once", path, lineno, optname);
-						errno = EINVAL, retvalue |= -1;
+						errno = EINVAL, retvalue = -1;
 					}
 					break;
 				case STRCASE(d,n,s):
 					if (fwdaddr_count >= IOTHDNS_MAXNS) {
 						printlog(LOG_ERR, "%s (line %d): up to three %s may be listed", path, lineno, optname);
-						errno = EINVAL, retvalue |= -1;
+						errno = EINVAL, retvalue = -1;
 					} else {
 						if (inet_ptonx(AF_INET6, value, &fwdaddr[fwdaddr_count]) == 1)
 							fwdaddr_count++;
 						else {
 							printlog(LOG_ERR, "%s (line %d): syntax error in %s definition", path, lineno, optname);
-							errno = EINVAL, retvalue |= -1;
+							errno = EINVAL, retvalue = -1;
 						}
 					}
 					break;
@@ -221,13 +272,13 @@ int parsercfile(char *path) {
 						int tagc = stropt_spaces(value, NULL, NULL);
 						if (tagc != 3) {
 							printlog(LOG_ERR, "%s (line %d): arg count mismatch for %s", path, lineno, optname);
-							errno = EINVAL, retvalue |= -1;
+							errno = EINVAL, retvalue = -1;
 						} else {
 							char *tags[tagc];
 							stropt_spaces(value, tags, value);
 							if (auth_add_net(tags[0], tags[1]) < 0) {
 								printlog(LOG_ERR, "%s (line %d): syntax error in %s definition", path, lineno, optname);
-								errno = EINVAL, retvalue |= -1;
+								errno = EINVAL, retvalue = -1;
 							}
 						}
 					}
@@ -237,7 +288,7 @@ int parsercfile(char *path) {
 						int tagc = stropt_spaces(value, NULL, NULL);
 						if (tagc < 3 || tagc > 6) {
 							printlog(LOG_ERR, "%s (line %d): arg count mismatch for %s", path, lineno, optname);
-							errno = EINVAL, retvalue |= -1;
+							errno = EINVAL, retvalue = -1;
 						} else {
 							char *tags[6] ={NULL, NULL, NULL, NULL, NULL, NULL };
 							stropt_spaces(value, tags, value);
@@ -259,7 +310,7 @@ int parsercfile(char *path) {
 							}
 							if (auth_add_auth(tags[0], tags[1], addr, baseaddr, tags[4]) < 0) {
 								printlog(LOG_ERR, "%s (line %d): syntax error in %s definition", path, lineno, optname);
-								errno = EINVAL, retvalue |= -1;
+								errno = EINVAL, retvalue = -1;
 							}
 						}
 					}
@@ -267,16 +318,22 @@ int parsercfile(char *path) {
 				case STRCASE(s,t,a,t,i,c):
 					if (conf_parse_static(value) < 0) {
 						printlog(LOG_ERR, "%s (line %d): syntax error in %s definition", path, lineno, optname);
-						errno = EINVAL, retvalue |= -1;
+						errno = EINVAL, retvalue = -1;
+					}
+					break;
+				case STRCASE(o,p,t,i,o,n):
+					if (conf_parse_option(value) < 0) {
+						printlog(LOG_ERR, "%s (line %d): syntax error in %s definition", path, lineno, optname);
+						errno = EINVAL, retvalue = -1;
 					}
 					break;
 				default:
 					printlog(LOG_ERR, "%s (line %d): unknown directive %s", path, lineno, optname);
-					errno = EINVAL, retvalue |= -1;
+					errno = EINVAL, retvalue = -1;
 			}
 		} else {
 			printlog(LOG_ERR, "%s (line %d): syntax error", path, lineno);
-			errno = EINVAL, retvalue |= -1;
+			errno = EINVAL, retvalue = -1;
 		}
 	}
 	fclose(f);

@@ -57,6 +57,8 @@ static int uffd = -1;  // udp forward fd
 static int tlfd = -1;  // tcp listen fd
 static int tffd[IOTHDNS_MAXNS] = {-1, -1, -1};  // tcp forward fd
 
+static int tcp_listen_backlog = 5;
+
 void cleaning(time_t now) {
 	dnsreq_clean(now, NULL, NULL);
 	cache_clean(now);
@@ -331,7 +333,7 @@ void mainloop(struct ioth *_rstack, struct ioth *_fstack, struct in6_addr *_fwda
 
 	tlfd = ioth_msocket(rstack, AF_INET6, SOCK_STREAM, 0);
 	ioth_bind(tlfd, (struct sockaddr *)&scli, sizeof(scli));
-	ioth_listen(tlfd, 5);
+	ioth_listen(tlfd, tcp_listen_backlog);
 
 	uffd = ioth_msocket(fstack, AF_INET6, SOCK_DGRAM, 0);
 
@@ -365,4 +367,13 @@ void mainloop(struct ioth *_rstack, struct ioth *_fstack, struct in6_addr *_fwda
 				process_trfd(event->data.ptr);
 		}
 	}
+}
+
+void mainloop_set_hashttl(int ttl) {
+	process_dns_req_set_hashttl(ttl);
+}
+
+void mainloop_set_tcp_listen_backlog(int backlog) {
+	if (backlog >= 0)
+		tcp_listen_backlog = backlog;
 }
