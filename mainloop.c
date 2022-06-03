@@ -44,6 +44,7 @@
 #include <cache.h>
 #include <dnsheader_flags.h>
 #include <process_dns_req.h>
+#include <fdtimeout.h>
 
 static struct ioth *rstack; // req stack
 static struct ioth *fstack; // fwd stack
@@ -59,9 +60,14 @@ static int tffd[IOTHDNS_MAXNS] = {-1, -1, -1};  // tcp forward fd
 
 static int tcp_listen_backlog = 5;
 
+static void tcp_timeout_cb(int fd) {
+	ioth_shutdown(fd, SHUT_RDWR);
+}
+
 void cleaning(time_t now) {
 	dnsreq_clean(now, NULL, NULL);
 	cache_clean(now);
+	fd_timeout_clean(now, tcp_timeout_cb);
 }
 
 /* UDP forwarder */
@@ -189,6 +195,7 @@ void process_tlfd(void) {
 		else {
 			struct tcpdata *td = calloc(1, sizeof(*td));
 			td->fd = connfd;
+			fd_timeout_add(now(), connfd);
 			epoll_ctl(epollfd, EPOLL_CTL_ADD, connfd, &((struct epoll_event){.events=POLLIN, .data.ptr = td}));
 		}
 	}
@@ -221,6 +228,7 @@ void process_trfd(void *data) {
 		epoll_ctl(epollfd, EPOLL_CTL_DEL, td->fd, NULL);
 		/* drop all the pending requests */
 		dnsreq_delfd(td->fd, NULL, NULL);
+		fd_timeout_del(td->fd);
 		close(td->fd);
 		if (td->buf) free(td->buf);
 		free(td);
@@ -232,6 +240,7 @@ void process_trfd(void *data) {
 		if (pkt) {
 			struct sockaddr_in6 sock;
 			socklen_t socklen = sizeof(sock);
+			fd_timeout_add(now(), td->fd);
 			getpeername(td->fd, (struct sockaddr *)&sock, &socklen);
 			struct iothdns_pkt *rpkt = process_dns_req(&h, &sock.sin6_addr);
 			if (rpkt != NULL) {
@@ -376,4 +385,8 @@ void mainloop_set_hashttl(int ttl) {
 void mainloop_set_tcp_listen_backlog(int backlog) {
 	if (backlog >= 0)
 		tcp_listen_backlog = backlog;
+}
+
+void mainloop_set_tcp_timeout(int timeout) {
+	fd_timeout_set(timeout);
 }

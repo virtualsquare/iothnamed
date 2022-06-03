@@ -34,7 +34,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 # configure_file(config.h.in config.h)
 
 add_executable(iothnamed main.c mainloop.c dnsreqq.c now.c utils.c arpainetx.c
-		tcpq.c auth.c process_dns_req.c cache.c)
+		tcpq.c auth.c process_dns_req.c cache.c fdtimeout.c)
 target_link_libraries(iothnamed ioth iothdns iothconf iothaddr stropt)
 install(TARGETS iothnamed
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

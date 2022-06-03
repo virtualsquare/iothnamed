@@ -85,12 +85,11 @@ static int conf_parse_option(char *entry) {
 					return errno = EINVAL, -1;
 				mainloop_set_tcp_listen_backlog(strtol(tags[1], NULL, 10));
 				break;
-#if 0
 			case STRCASE(t,c,p,t,i,m,e,o,u,t):
 				if (tagc != 3)
 					return errno = EINVAL, -1;
+				mainloop_set_tcp_timeout(strtol(tags[1], NULL, 10));
 				break;
-#endif
 			default:
 				return errno = EINVAL, -1;
 		}

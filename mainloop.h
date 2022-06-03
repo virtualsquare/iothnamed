@@ -5,5 +5,6 @@ void mainloop(struct ioth *rstack, struct ioth *fstack, struct in6_addr *fwdaddr
 
 void mainloop_set_hashttl(int ttl);
 void mainloop_set_tcp_listen_backlog(int backlog);
+void mainloop_set_tcp_timeout(int timeout);
 
 #endif
