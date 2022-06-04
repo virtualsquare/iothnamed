@@ -297,6 +297,7 @@ int parsercfile(char *path) {
 							char revbuf[INET6_REVSTRLEN];
 							if (tags[2] != NULL) {
 								addr = inet_ptor(tags[2], revbuf, INET6_REVSTRLEN);
+								/* if it is not a numeric IPv4/IPv6 addr, try to query the DNS */
 								if (addr == tags[2] && strchr(addr, '/') != NULL)
 									addr = inet_aaaator(tags[2], revbuf, INET6_REVSTRLEN);
 							}
@@ -393,7 +394,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	if (daemonize && daemon(0, 0)) {
-		printlog(LOG_ERR,"daemon: %s", strerror(errno));
+		printlog(LOG_ERR, "daemon: %s", strerror(errno));
 		exit(1);
 	}
 
@@ -408,6 +409,7 @@ int main(int argc, char *argv[])
 	auth_printauth(stderr);
 #endif
 
-	mainloop(rstack, fstack, fwdaddr, fwdaddr_count);
+	if (mainloop(rstack, fstack, fwdaddr, fwdaddr_count) < 0)
+		exit(1);
 	return 0;
 }

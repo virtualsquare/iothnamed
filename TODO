@@ -1,4 +1,3 @@
-error feedback for net communication startup problems (bind etc)
 renew base addresses for hash/otip
 round robin for forwarding timeouts or errors?
 multiple AAAA base addr for otip/hash?

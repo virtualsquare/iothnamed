@@ -46,6 +46,14 @@
 #include <process_dns_req.h>
 #include <fdtimeout.h>
 
+#define DNS_UDP_PORT 53
+#define ckretval(retval, X) do { \
+	if (retval < 0) { \
+		printlog(LOG_ERR, X ": %s", strerror(errno)); \
+		return -1; \
+	} \
+} while (0)
+
 static struct ioth *rstack; // req stack
 static struct ioth *fstack; // fwd stack
 static struct in6_addr *fwdaddr;
@@ -53,6 +61,12 @@ static int fwdaddr_count;
 static int fwdaddr_rr; // round robin scan index
 
 static int epollfd;
+/* fd names: xyfd where:
+	 x == 'u' -> UDP
+	 x == 't' -> TCP
+	 y == 'r' -> client requests
+	 y == 'f' -> forwarding
+	 y == 'l' -> listening (tcp) */
 static int urfd = -1;  // udp requests fd
 static int uffd = -1;  // udp forward fd
 static int tlfd = -1;  // tcp listen fd
@@ -105,7 +119,7 @@ void process_urfd(void) {
 			struct sockaddr_in6 sfwd = {
 				.sin6_family = AF_INET6,
 				.sin6_addr = fwdaddr[fwdaddr_rr],
-				.sin6_port = htons(53)};
+				.sin6_port = htons(DNS_UDP_PORT)};
 			ioth_sendto(uffd, buf, len, 0, (struct sockaddr *)&sfwd, sizeof(sfwd));
 			fwdaddr_rr = (fwdaddr_rr + 1) % fwdaddr_count;
 		}
@@ -202,20 +216,25 @@ void process_tlfd(void) {
 }
 
 /* There is data in tcpq to the forwarding server */
-static void wake_tcp(void) {
+static int wake_tcp(void) {
 	/* if the connection to the server is not active, do a asynch connect */
 	struct epoll_event ev = {
 		.events=POLLIN | POLLOUT,
 		.data.ptr = &tffd[fwdaddr_rr]
 	};
 	if (tffd[fwdaddr_rr] < 0) {
-		struct sockaddr_in6 sfwd = {.sin6_family = AF_INET6, .sin6_addr = fwdaddr[fwdaddr_rr], .sin6_port = htons(53)};
-		tffd[fwdaddr_rr] = ioth_msocket(fstack, AF_INET6, SOCK_STREAM | SOCK_NONBLOCK, 0);
-		ioth_connect(tffd[fwdaddr_rr], (struct sockaddr *)&sfwd, sizeof(sfwd));
+		int retval;
+		struct sockaddr_in6 sfwd = {.sin6_family = AF_INET6, .sin6_addr = fwdaddr[fwdaddr_rr], .sin6_port = htons(DNS_UDP_PORT)};
+		retval = tffd[fwdaddr_rr] = ioth_msocket(fstack, AF_INET6, SOCK_STREAM | SOCK_NONBLOCK, 0);
+		ckretval(retval, "tcp forward fd msocket");
+		retval = ioth_connect(tffd[fwdaddr_rr], (struct sockaddr *)&sfwd, sizeof(sfwd));
+		if (retval < 0 && errno != EINPROGRESS)
+			ckretval(retval, "tcp forward fd connect");
 		epoll_ctl(epollfd, EPOLL_CTL_ADD, tffd[fwdaddr_rr], &ev);
 	} else
 		epoll_ctl(epollfd, EPOLL_CTL_MOD, tffd[fwdaddr_rr], &ev);
 	fwdaddr_rr = (fwdaddr_rr + 1) % fwdaddr_count;
+	return 0;
 }
 
 /* POLLIN event from a TCP client */
@@ -329,22 +348,30 @@ void process_tffd(int index, uint32_t events) {
 }
 
 #define NEVENTS 1
-void mainloop(struct ioth *_rstack, struct ioth *_fstack, struct in6_addr *_fwdaddr, int _fwdaddr_count) {
+
+int mainloop(struct ioth *_rstack, struct ioth *_fstack, struct in6_addr *_fwdaddr, int _fwdaddr_count) {
+	int retval;
 	rstack = _rstack;
 	fstack = _fstack;
 	fwdaddr = _fwdaddr;
 	fwdaddr_count = _fwdaddr_count;
 
-	struct sockaddr_in6 scli = {.sin6_family = AF_INET6, .sin6_addr = in6addr_any, .sin6_port = htons(53)};
+	struct sockaddr_in6 scli = {.sin6_family = AF_INET6, .sin6_addr = in6addr_any, .sin6_port = htons(DNS_UDP_PORT)};
 
-	urfd = ioth_msocket(rstack, AF_INET6, SOCK_DGRAM, 0);
-	ioth_bind(urfd, (struct sockaddr *)&scli, sizeof(scli));
+	retval = urfd = ioth_msocket(rstack, AF_INET6, SOCK_DGRAM, 0);
+	ckretval(retval, "udp request fd msocket");
+	retval = ioth_bind(urfd, (struct sockaddr *)&scli, sizeof(scli));
+	ckretval(retval, "udp request fd bind");
 
-	tlfd = ioth_msocket(rstack, AF_INET6, SOCK_STREAM, 0);
-	ioth_bind(tlfd, (struct sockaddr *)&scli, sizeof(scli));
-	ioth_listen(tlfd, tcp_listen_backlog);
+	retval = tlfd = ioth_msocket(rstack, AF_INET6, SOCK_STREAM, 0);
+	ckretval(retval, "tcp listening fd msocket");
+	retval = ioth_bind(tlfd, (struct sockaddr *)&scli, sizeof(scli));
+	ckretval(retval, "tcp listening fd bind");
+	retval = ioth_listen(tlfd, tcp_listen_backlog);
+	ckretval(retval, "tcp listening fd listen");
 
-	uffd = ioth_msocket(fstack, AF_INET6, SOCK_DGRAM, 0);
+	retval = uffd = ioth_msocket(fstack, AF_INET6, SOCK_DGRAM, 0);
+	ckretval(retval, "udp forward fd msocket");
 
 	epollfd = epoll_create1(0);
 	epoll_ctl(epollfd, EPOLL_CTL_ADD, urfd, &((struct epoll_event){.events=POLLIN, .data.ptr = &urfd}));
@@ -376,6 +403,7 @@ void mainloop(struct ioth *_rstack, struct ioth *_fstack, struct in6_addr *_fwda
 				process_trfd(event->data.ptr);
 		}
 	}
+	return 0;
 }
 
 void mainloop_set_hashttl(int ttl) {
