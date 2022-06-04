@@ -347,7 +347,7 @@ void process_tffd(int index, uint32_t events) {
 	}
 }
 
-#define NEVENTS 1
+#define NEVENTS 8
 
 int mainloop(struct ioth *_rstack, struct ioth *_fstack, struct in6_addr *_fwdaddr, int _fwdaddr_count) {
 	int retval;
