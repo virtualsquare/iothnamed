@@ -218,6 +218,9 @@ int parsercfile(char *path) {
 		char optname[len], value[len];
 		// parse the line
 		*value = 0;
+		/* optname <- the first alphanumeric field (%[a-zA-Z0-9])
+			 value <- the remaining of the line not including \n (%[^\n])
+			 and discard the \n (%*c) */
 		if (sscanf (line, "%[a-zA-Z0-9] %[^\n]%*c", optname, value) > 0) {
 			switch(strcase_tolower(optname)) {
 				case STRCASE(s,t,a,c,k):
