@@ -1,0 +1,47 @@
+## stacks for clients and to forward queries
+#rstack     stack=vdestack,vnl=vde:///tmp/hub,eth,ip=192.168.1.24/24,mac=80:01:01:01:01:01
+#fstack    stack=kernel
+#
+## dns to forward queries (up to three)
+#dns       8.8.8.8
+#dns       80.80.80.80
+##dns      2620:119:35::35
+#
+## define names for address spaces (nets)
+#net       world ::/0
+#net       local 192.168.1.0/24
+#net       local 10.0.10.0/24
+#net       local6 2001:760:2e00:ff00::1/64
+#
+##authorization
+#auth      accept local
+#auth      error local test.err
+#auth      error local .test.err
+#auth      static local,world .foo.bar
+#auth      static world 10.20.30.0/24
+#auth      static world 2001::0/64
+#auth      hash world .htest.v2.cs.unibo.it 2002::1
+#auth      hash world .hash.v2.cs.unibo.it hash.map.v2.cs.unibo.it
+#auth      hrev world hash.map.v2.cs.unibo.it/64
+#auth      hrev world 2002::1/64
+#auth      otip local .otip.v2.cs.unibo.it 2003::1 pwd
+#auth      cache local .
+#auth      fwd local .
+#
+##static definitions
+#static    A    test.foo.bar 10.20.30.40
+#static    AAAA test.foo.bar 2001::1
+#static    PTR  10.20.30.40 test.foo.bar
+#static    PTR  2001::1 test.foo.bar
+#static    CNAME  tost.foo.bar test.foo.bar
+#static    NS  dom.foo.bar dns.foo.bar
+#static    MX  test.foo.bar 10 mail.foo.bar
+#static    TXT  test.foo.bar "sempre caro mi fu quest'ermo colle" "long string"
+#
+##options
+## hrev mode can be always, net, same or never
+#option hrevmode always
+#option hashttl 600
+#option tcplistenbacklog 5
+#option tcptimeout 3
+#

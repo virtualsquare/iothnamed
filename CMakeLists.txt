@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 project("iothnamed"
     DESCRIPTION "DNS server/forwarder/proxy for the ioth "
-    HOMEPAGE_URL "https://github.com/cirtualsquare/iothnamed"
+    HOMEPAGE_URL "https://github.com/virtualsquare/iothnamed"
     VERSION 0.1.0
     LANGUAGES C)
 
