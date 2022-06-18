@@ -43,6 +43,7 @@ struct dnsreq {
 	uint16_t qtype;
 	int fd;
 	socklen_t salen;
+	size_t ctllen;
 	struct sockaddr sa[];
 };
 
@@ -67,8 +68,14 @@ __attribute__((constructor))
 			NL_INIT_LIST_HEAD(&fdhash[i]);
 	}
 
+static void *controladdr(struct dnsreq *req) {
+	uint8_t *addr = (void *) (req->sa);
+	return addr + req->salen;
+}
+
 int dnsreq_put(uint16_t clientid, const char *name, uint16_t qtype,
-		int fd, const struct sockaddr *client_addr, socklen_t clientlen) {
+		int fd, struct msghdr *msg) {
+
 	uint16_t serverid = random();
 	int i;
 	pthread_mutex_lock(&reqmutex);
@@ -80,7 +87,10 @@ int dnsreq_put(uint16_t clientid, const char *name, uint16_t qtype,
 	}
 	if (i == MAXREQ)
 		err_return(ENOMEM);
-	struct dnsreq *new = malloc(sizeof(*new) + clientlen);
+	struct dnsreq *new;
+	size_t newsize = sizeof(*new) +
+		((msg == NULL) ? 0 : (msg->msg_namelen + msg->msg_controllen));
+	new = malloc(newsize);
 	if (new == NULL)
 		err_return(ENOMEM);
 	new->expire = now() + TIMEOUT;
@@ -89,9 +99,17 @@ int dnsreq_put(uint16_t clientid, const char *name, uint16_t qtype,
 	new->serverid = serverid;
 	new->qtype = qtype;
 	new->fd = fd;
-	new->salen = clientlen;
-	if (clientlen > 0)
-		memcpy(new->sa, client_addr, clientlen);
+	if (msg == NULL) {
+		new->salen = 0;
+		new->ctllen = 0;
+	} else {
+		new->salen = msg->msg_namelen;
+		new->ctllen = msg->msg_controllen;
+		if (msg->msg_namelen > 0)
+			memcpy(new->sa, msg->msg_name, msg->msg_namelen);
+		if (msg->msg_controllen > 0)
+			memcpy(controladdr(new), msg->msg_control, msg->msg_controllen);
+	}
 	nl_list_add_tail(&new->reqq, &reqq);
 	nl_list_add_tail(&new->fdlist, &fdhash[fd % FDHASH]);
 	reqtab[serverid % MAXREQ] = new;
@@ -107,20 +125,24 @@ static void dnsreq_del(struct dnsreq *this) {
 }
 
 int dnsreq_get(uint16_t serverid, const char *name, uint16_t qtype,
-		int *fd, struct sockaddr *client_addr, socklen_t *clientlen) {
+		int *fd, struct msghdr *msg) {
 	struct dnsreq *this = reqtab[serverid % MAXREQ];
 	pthread_mutex_lock(&reqmutex);
 	if (this == NULL || qtype != this->qtype || serverid != this->serverid ||
 			simple_stringhash(name) != this->namehash)
 		err_return(ENOENT);
 	uint16_t clientid = this->clientid;
-	if (client_addr != NULL) {
-		if (this->salen > *clientlen)
-			err_return(EINVAL);
-		else {
-			*clientlen = this->salen;
-			memcpy(client_addr, this->sa, this->salen);
-		}
+	if (msg != NULL) {
+		if (this->salen <= msg->msg_namelen) {
+			msg->msg_namelen = this->salen;
+			memcpy(msg->msg_name, this->sa, this->salen);
+		} else
+			msg->msg_namelen = 0;
+		if (this->ctllen <= msg->msg_controllen) {
+			msg->msg_controllen = this->ctllen;
+			memcpy(msg->msg_control, controladdr(this), this->ctllen);
+		} else
+			msg->msg_controllen = 0;
 	}
 	*fd = this->fd;
 	dnsreq_del(this);
@@ -131,7 +153,7 @@ int dnsreq_get(uint16_t serverid, const char *name, uint16_t qtype,
 void dnsreq_delfd(int fd, delcb *cb, void *arg) {
 	struct dnsreq *scan, *tmp;
 	pthread_mutex_unlock(&reqmutex);
-  nl_list_for_each_entry_safe(scan, tmp, &fdhash[fd % FDHASH], fdlist) {
+	nl_list_for_each_entry_safe(scan, tmp, &fdhash[fd % FDHASH], fdlist) {
 		if (scan->fd == fd) {
 			if (cb)
 				cb(scan->fd, scan->salen ? scan->sa : NULL, scan->salen, arg);

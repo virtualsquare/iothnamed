@@ -44,10 +44,10 @@
  */
 
 int dnsreq_put(uint16_t clientid, const char *name, uint16_t qtype,
-		int fd, const struct sockaddr *client_addr, socklen_t clientlen);
+		int fd, struct msghdr *msg);
 
 int dnsreq_get(uint16_t serverid, const char *name, uint16_t qtype,
-		int *fd, struct sockaddr *client_addr, socklen_t *clientlen);
+		int *fd, struct msghdr *msg);
 
 /* callback function for dnsreq_delfd and dnsreq_clean */
 typedef void delcb(int fd, struct sockaddr *client_addr, socklen_t clientlen, void *arg);

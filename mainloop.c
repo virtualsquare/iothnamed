@@ -60,6 +60,7 @@ static struct in6_addr *fwdaddr;
 static int fwdaddr_count;
 static int fwdaddr_rr; // round robin scan index
 
+#define CMSG_PKTINFO_SIZE CMSG_SPACE(sizeof(struct in6_pktinfo))
 static int epollfd;
 /* fd names: xyfd where:
 	 x == 'u' -> UDP
@@ -90,10 +91,19 @@ void cleaning(time_t now) {
 void process_urfd(void) {
 	char buf[IOTHDNS_UDP_MAXBUF];
 	struct sockaddr_in6 sock;
-	socklen_t socklen = sizeof(sock);
+
+	uint8_t ctlbuf[CMSG_PKTINFO_SIZE];
+	struct msghdr msghdr = {
+		.msg_name = &sock,
+		.msg_namelen = sizeof(sock),
+		.msg_iov = &((struct iovec) {buf, IOTHDNS_UDP_MAXBUF}),
+		.msg_iovlen = 1,
+		.msg_control = ctlbuf,
+		.msg_controllen = sizeof(ctlbuf),
+	};
 	struct iothdns_header h;
 	char qnamebuf[IOTHDNS_MAXNAME];
-	size_t len = ioth_recvfrom(urfd, buf, IOTHDNS_UDP_MAXBUF, 0, (struct sockaddr *) &sock, &socklen);
+	size_t len = ioth_recvmsg(urfd, &msghdr, 0);
 	struct iothdns_pkt *pkt = iothdns_get_header(&h, buf, len, qnamebuf);
 	if (pkt) {
 		struct iothdns_pkt *rpkt = process_dns_req(&h, &sock.sin6_addr);
@@ -103,13 +113,16 @@ void process_urfd(void) {
 				struct iothdns_header th = h;
 				th.flags = FLAGS_TRUNC(th.flags);
 				struct iothdns_pkt *tpkt = iothdns_put_header(&th);
-				ioth_sendto(urfd, iothdns_buf(tpkt), iothdns_buflen(tpkt), 0, (struct sockaddr *)&sock, socklen);
+				*msghdr.msg_iov = (struct iovec) {iothdns_buf(tpkt), iothdns_buflen(tpkt)};
+				ioth_sendmsg(urfd, &msghdr, 0);
 				iothdns_free(tpkt);
-			} else
-				ioth_sendto(urfd, iothdns_buf(rpkt), buflen, 0, (struct sockaddr *)&sock, socklen);
+			} else {
+				*msghdr.msg_iov = (struct iovec) {iothdns_buf(rpkt), buflen};
+				ioth_sendmsg(urfd, &msghdr, 0);
+			}
 			iothdns_free(rpkt);
 		} else if (fwdaddr_count > 0){
-			int serverid = dnsreq_put(h.id, h.qname, h.qtype, urfd, (struct sockaddr *) &sock, socklen);
+			int serverid = dnsreq_put(h.id, h.qname, h.qtype, urfd, &msghdr);
 			iothdns_rewrite_header(pkt, serverid, h.flags);
 #if FWD_PKT_DUMP
 			printf("%d %d\n",h.id,serverid);
@@ -131,7 +144,6 @@ void process_urfd(void) {
 void process_uffd(void) {
 	char buf[IOTHDNS_UDP_MAXBUF];
 	struct sockaddr_in6 sock;
-	socklen_t socklen = sizeof(sock);
 	struct iothdns_header h;
 	char qnamebuf[IOTHDNS_MAXNAME];
 	size_t len = ioth_recv(uffd, buf, IOTHDNS_UDP_MAXBUF, 0);
@@ -142,15 +154,24 @@ void process_uffd(void) {
 	struct iothdns_pkt *pkt = iothdns_get_header(&h, buf, len, qnamebuf);
 	if (pkt) {
 		int fd;
+		uint8_t ctlbuf[CMSG_PKTINFO_SIZE];
 		if (auth_isactive(AUTH_CACHE))
 			cache_feed(pkt);
-		int clientid = dnsreq_get(h.id, h.qname, h.qtype, &fd, (struct sockaddr *) &sock, &socklen);
+		struct msghdr msghdr = {
+			.msg_name = &sock,
+			.msg_namelen = sizeof(sock),
+			.msg_iov = &((struct iovec) {iothdns_buf(pkt), iothdns_buflen(pkt)}),
+			.msg_iovlen = 1,
+			.msg_control = ctlbuf,
+			.msg_controllen = sizeof(ctlbuf),
+		};
+		int clientid = dnsreq_get(h.id, h.qname, h.qtype, &fd, &msghdr);
 #if FWD_PKT_DUMP
 		printf("%d %d\n",h.id,clientid);
 #endif
 		if  (clientid != -1 && fd == urfd) {
 			iothdns_rewrite_header(pkt, clientid, h.flags);
-			ioth_sendto(urfd, iothdns_buf(pkt), iothdns_buflen(pkt), 0, (struct sockaddr *) &sock, socklen);
+			ioth_sendmsg(urfd, &msghdr, 0);
 		}
 		iothdns_free(pkt);
 	}
@@ -267,7 +288,7 @@ void process_trfd(void *data) {
 				iothdns_free(rpkt);
 			} else {
 				/* forward the packet */
-				int serverid = dnsreq_put(h.id, h.qname, h.qtype, td->fd, NULL, 0);
+				int serverid = dnsreq_put(h.id, h.qname, h.qtype, td->fd, NULL);
 				if (serverid >= 0) {
 					iothdns_rewrite_header(pkt, serverid, h.flags);
 #if FWD_PKT_DUMP
@@ -328,7 +349,7 @@ void process_tffd(int index, uint32_t events) {
 				int fd;
 				if (auth_isactive(AUTH_CACHE))
 					cache_feed(pkt);
-				int clientid = dnsreq_get(h.id, h.qname, h.qtype, &fd, NULL, NULL);
+				int clientid = dnsreq_get(h.id, h.qname, h.qtype, &fd, NULL);
 				if (clientid >= 0) {
 					iothdns_rewrite_header(pkt, clientid, h.flags);
 #if FWD_PKT_DUMP
@@ -351,6 +372,7 @@ void process_tffd(int index, uint32_t events) {
 
 int mainloop(struct ioth *_rstack, struct ioth *_fstack, struct in6_addr *_fwdaddr, int _fwdaddr_count) {
 	int retval;
+	int on = 1;
 	rstack = _rstack;
 	fstack = _fstack;
 	fwdaddr = _fwdaddr;
@@ -362,6 +384,7 @@ int mainloop(struct ioth *_rstack, struct ioth *_fstack, struct in6_addr *_fwdad
 	ckretval(retval, "udp request fd msocket");
 	retval = ioth_bind(urfd, (struct sockaddr *)&scli, sizeof(scli));
 	ckretval(retval, "udp request fd bind");
+	setsockopt(urfd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on, sizeof(on));
 
 	retval = tlfd = ioth_msocket(rstack, AF_INET6, SOCK_STREAM, 0);
 	ckretval(retval, "tcp listening fd msocket");
