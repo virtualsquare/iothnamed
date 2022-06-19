@@ -224,10 +224,17 @@ int parsercfile(char *path) {
 		if (sscanf (line, "%[a-zA-Z0-9] %[^\n]%*c", optname, value) > 0) {
 			switch(strcase_tolower(optname)) {
 				case STRCASE(s,t,a,c,k):
-					if (rstack == NULL && fstack == NULL) {
-						if ((rstack = fstack = ioth_newstackc(value)) == NULL) {
-							printlog(LOG_ERR, "%s (line %d): %s error opening stack", path, lineno, optname);
-							errno = EINVAL, retvalue = -1;
+					if (rstack == fstack) {
+						if (rstack == NULL) {
+							if ((rstack = fstack = ioth_newstackc(value)) == NULL) {
+								printlog(LOG_ERR, "%s (line %d): %s error opening stack", path, lineno, optname);
+								errno = EINVAL, retvalue = -1;
+							}
+						} else {
+							if (ioth_config(rstack, value) < 0) {
+								printlog(LOG_ERR, "%s (line %d): %s error configuring stack", path, lineno, optname);
+								errno = EINVAL, retvalue = -1;
+							}
 						}
 					} else {
 						printlog(LOG_ERR, "%s (line %d): %s can be defined only once", path, lineno, optname);
@@ -241,8 +248,15 @@ int parsercfile(char *path) {
 							errno = EINVAL, retvalue = -1;
 						}
 					} else {
-						printlog(LOG_ERR, "%s (line %d): %s can be defined only once", path, lineno, optname);
-						errno = EINVAL, retvalue = -1;
+						if (rstack == fstack) {
+							printlog(LOG_ERR, "%s (line %d): %s can be defined only once", path, lineno, optname);
+							errno = EINVAL, retvalue = -1;
+						} else {
+							if (ioth_config(rstack, value) < 0) {
+								printlog(LOG_ERR, "%s (line %d): %s error configuring stack", path, lineno, optname);
+                errno = EINVAL, retvalue = -1;
+              }
+						}
 					}
 					break;
 				case STRCASE(f,s,t,a,c,k):
@@ -252,8 +266,15 @@ int parsercfile(char *path) {
 							errno = EINVAL, retvalue = -1;
 						}
 					} else {
-						printlog(LOG_ERR, "%s (line %d): %s can be defined only once", path, lineno, optname);
-						errno = EINVAL, retvalue = -1;
+						if (rstack == fstack) {
+							printlog(LOG_ERR, "%s (line %d): %s can be defined only once", path, lineno, optname);
+							errno = EINVAL, retvalue = -1;
+						} else {
+							if (ioth_config(fstack, value) < 0) {
+								printlog(LOG_ERR, "%s (line %d): %s error configuring stack", path, lineno, optname);
+                errno = EINVAL, retvalue = -1;
+              }
+						}
 					}
 					break;
 				case STRCASE(d,n,s):
