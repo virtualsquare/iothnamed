@@ -1,0 +1,21 @@
+## example1: define local names and forward other request.
+
+rstack    stack=vdestack,vnl=vde:///tmp/hub
+rstack    mac=80:01:01:01:01:01,eth
+rstack    ip=192.168.1.24/24
+fstack    stack=kernel
+
+dns       8.8.8.8
+dns       80.80.80.80
+
+net       local 192.168.1.0/24
+auth      accept local
+auth      static local .test.local
+auth      static local 192.168.1.0/24
+auth      fwd local .
+auth      cache local .
+
+static    A one.test.local 192.168.1.1
+static    A two.test.local 192.168.1.2
+static    PTR 192.168.1.1 one.test.local 
+static    PTR 192.168.1.2 two.test.local 

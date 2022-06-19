@@ -1,0 +1,16 @@
+## example3: hash based IPv6 addresses
+
+rstack     stack=vdestack,vnl=vde:///tmp/hub
+rstack     mac=80:01:01:01:01:01,eth
+rstack     ip=2001:760:2e00:ff00::fd/64,ip=2001:760:2e00:ff00::ff/64
+rstack     ip=130.136.31.253/24,gw=130.136.31.1
+dns        80.80.80.80
+
+net       world ::/0
+
+# auth      hash world .hash.v2.cs.unibo.it 2001:760:2e00:ff00::
+# auth      hrev world 2001:760:2e00:ff00::/64
+auth      hash world .hash.v2.cs.unibo.it hash.map.v2.cs.unibo.it
+auth      hrev world hash.map.v2.cs.unibo.it/64
+
+option hrevmode always

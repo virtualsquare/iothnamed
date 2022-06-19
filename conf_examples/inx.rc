@@ -1,0 +1,18 @@
+## example2: delegated domain
+
+rstack    stack=vdestack,vnl=vde:///tmp/hub
+rstack    mac=80:01:01:01:01:01,eth
+rstack    ip=130.136.31.250/24,gw=130.136.31.1
+rstack    ip=2001:760:2e00:ff00::fd/64,ip=2001:760:2e00:ff00::ff/64
+
+dns       8.8.8.8
+dns       80.80.80.80
+
+net       world ::/0
+
+auth      static world .dom.v2.cs.unibo.it
+
+static    A one.dom.v2.cs.unibo.it 192.168.1.1
+static    AAAA one.dom.v2.cs.unibo.it fc00::1
+static    A two.dom.v2.cs.unibo.it 192.168.1.2
+static    AAAA two.dom.v2.cs.unibo.it fc00::2
