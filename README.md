@@ -229,7 +229,7 @@ dns       80.80.80.80
 # the net name 'local' defines the ip range 192.168.1.0/24
 net       local 192.168.1.0/24
 
-# clients from 'local' are alloed to send tcp dns requests
+# clients from 'local' are allowed to send tcp dns requests
 auth      accept local
 # clients from 'local' can receive replies for names xxxx.test.local
 auth      static local .test.local
@@ -304,7 +304,7 @@ static    A two.dom.v2.cs.unibo.it 192.168.1.2
 static    AAAA two.dom.v2.cs.unibo.it fc00::2
 ```
 
-Run 	iothnamed` on a host/namespace which owns the IP addresses used
+Run `iothnamed` on a host/namespace which owns the IP addresses used
 in the subdomain delegation:
 ```bash
 # ip addr
@@ -401,8 +401,9 @@ Any name having a `.hash.local` suffix is resolved as a hash based address. In o
 
 ### hash based IPv6 addresses (with delegation)
 
-The scenario is the combination of the two prvious examples.
-In this case the domain hash.v2.cs.unibo.it has been delegated to 2001:760:2e00:ff and 2001:760:2e00:ff, while the reverse resolutionf of 2001:760:2e00:ff00::/64 has been delegated to 2001:760:2e00:ff.
+The scenario is the combination of the two previous examples.
+In this case the domain hash.v2.cs.unibo.it has been delegated to 
+2001:760:2e00:ff00::fd and 130.136.31.253, while the reverse resolution of 2001:760:2e00:ff00::/64 has been delegated to 2001:760:2e00:ff00::ff.
 
 Here is the `delegated+hash.rc` file:
 ```
@@ -415,8 +416,26 @@ option hrevmode always
 
 ```
 
-Start `iothnamed`:
+Start `iothnamed` in a properly configured host/namespace:
 ```
+# ip addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+2: vde0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UNKNOWN group default qlen 1000
+    link/ether 46:9f:c6:9c:8b:6a brd ff:ff:ff:ff:ff:ff
+    inet 130.136.31.253/24 scope global vde0
+       valid_lft forever preferred_lft forever
+    inet6 2001:760:2e00:ff00::ff/64 scope global
+       valid_lft forever preferred_lft forever
+    inet6 2001:760:2e00:ff00::fd/64 scope global
+       valid_lft forever preferred_lft forever
+    inet6 fe80::449f:c6ff:fe9c:8b6a/64 scope link
+       valid_lft forever preferred_lft forever
+
 # iothnamed delegated+hash.rc
 ```
 
