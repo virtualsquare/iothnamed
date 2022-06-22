@@ -1,4 +1,4 @@
-## example1: define local names and forward other request.
+## example: define local names and forward other request.
 
 rstack    stack=vdestack,vnl=vde:///tmp/hub
 rstack    mac=80:01:01:01:01:01,eth
@@ -12,8 +12,8 @@ net       local 192.168.1.0/24
 auth      accept local
 auth      static local .test.local
 auth      static local 192.168.1.0/24
-auth      fwd local .
 auth      cache local .
+auth      fwd local .
 
 static    A one.test.local 192.168.1.1
 static    A two.test.local 192.168.1.2

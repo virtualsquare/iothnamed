@@ -1,4 +1,4 @@
-## example3: hash based IPv6 addresses
+## example: hash based IPv6 addresses
 
 rstack     stack=vdestack,vnl=vde:///tmp/hub
 rstack     mac=80:01:01:01:01:01,eth

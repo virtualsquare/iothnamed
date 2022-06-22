@@ -1,4 +1,4 @@
-## example2: delegated domain
+## example: delegated domain
 
 rstack    stack=vdestack,vnl=vde:///tmp/hub
 rstack    mac=80:01:01:01:01:01,eth
