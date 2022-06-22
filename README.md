@@ -455,3 +455,49 @@ The reverse resolution is also available (provided it queries for an address of 
 $ host 2001:760:2e00:ff00:542d:ffcb:17e:8fa7
 7.a.f.8.e.7.1.0.b.c.f.f.d.2.4.5.0.0.f.f.0.0.e.2.0.6.7.0.1.0.0.2.ip6.arpa domain name pointer whatever-you-want.hash.v2.cs.unibo.it.
 ```
+
+### OTIP (one time IP) and forward.
+
+This configuration can be used to provide access to otip protected services.
+Domain names like `renzo.otip` or `anything.otip` are translated to the current IP address of the service.
+(These addresses change after 32 secs).
+
+This is the `otip+forward.rc` file:
+```
+rstack    stack=vdestack,vnl=vde:///tmp/hub
+rstack    mac=80:01:01:01:01:01,eth
+rstack    ip=192.168.1.24/24
+rstack    ip=fc00::24/64
+fstack    stack=kernel
+
+dns       8.8.8.8
+dns       80.80.80.80
+
+net       local 192.168.1.0/24
+net       local fc00::/64
+auth      accept local
+
+auth      otip local .otip 2001:760:2e00:ff00:: mypassword
+
+auth      cache local .
+auth      fwd local .
+```
+
+Let us test the configuration.
+
+Start the `iothnamed` server:
+```bash
+iothnamed otip+forward.rc
+```
+
+Start and configure a vdens session (e.g. VNL=vde:///tmp/hub, ip addr fc00::1/64, dns=fc00::24).
+In this vdens session:
+```bash
+$ host renzo.otip
+renzo.otip has IPv6 address 2001:760:2e00:ff00:e8be:1b1f:6545:8d12
+```
+wait 32 secs or more
+```bash
+$ host renzo.otip
+renzo.otip has IPv6 address 2001:760:2e00:ff00:64c6:30b9:3f3a:14d7
+```
