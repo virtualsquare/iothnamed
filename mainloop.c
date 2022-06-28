@@ -384,7 +384,7 @@ int mainloop(struct ioth *_rstack, struct ioth *_fstack, struct in6_addr *_fwdad
 	ckretval(retval, "udp request fd msocket");
 	retval = ioth_bind(urfd, (struct sockaddr *)&scli, sizeof(scli));
 	ckretval(retval, "udp request fd bind");
-	setsockopt(urfd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on, sizeof(on));
+	ioth_setsockopt(urfd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on, sizeof(on));
 
 	retval = tlfd = ioth_msocket(rstack, AF_INET6, SOCK_STREAM, 0);
 	ckretval(retval, "tcp listening fd msocket");
