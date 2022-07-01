@@ -29,4 +29,10 @@ struct iothdns_pkt *cache_static_get(struct iothdns_header *h);
 /* try to satisfy a query using hash reverse data. */
 struct iothdns_pkt *cache_hrev_get(struct iothdns_header *h);
 
+/* retrieve an AAAA static record (for local glue addrs) */
+int cache_static_get_aaaa(const char *qname, struct in6_addr *addr);
+
+/* retrieve an A static record (for local glue addrs) */
+int cache_static_get_a(const char *qname, struct in_addr *addr);
+
 #endif

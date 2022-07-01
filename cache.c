@@ -429,3 +429,39 @@ struct iothdns_pkt *cache_static_get(struct iothdns_header *h) {
 struct iothdns_pkt *cache_hrev_get(struct iothdns_header *h) {
 	return _cache_get(NULL, &hrev_head[hrev_hash(h->qname)], h, 0);
 }
+
+static int _cache_static_get_data(struct nl_list_head *head, const char *qname,
+		uint16_t type, void *data) {
+	int rv = 0;
+	pthread_mutex_lock(&cachemutex);
+	struct kname *kname = getkname(head, qname, DO_NOT_ADD_IF_MISSING);
+	if (kname) {
+		struct krr *scan;
+		nl_list_for_each_entry(scan, &kname->namerr_head, namerr_list) {
+			if (scan->type == type) {
+				switch (type) {
+					case IOTHDNS_TYPE_AAAA:
+						*((struct in6_addr *)data) = scan->rru.aaaa;
+						rv = 1;
+						break;
+					case IOTHDNS_TYPE_A:
+						*((struct in_addr *)data) = scan->rru.a;
+						rv = 1;
+						break;
+				}
+			}
+		}
+	}
+	pthread_mutex_unlock(&cachemutex);
+	return rv;
+}
+
+int cache_static_get_aaaa(const char *qname, struct in6_addr *addr) {
+	return _cache_static_get_data(&static_head[static_hash(qname)],
+			qname, IOTHDNS_TYPE_AAAA, addr);
+}
+
+int cache_static_get_a(const char *qname, struct in_addr *addr) {
+	return _cache_static_get_data(&static_head[static_hash(qname)],
+			qname, IOTHDNS_TYPE_A, addr);
+}

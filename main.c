@@ -171,13 +171,32 @@ static int conf_parse_static(char *entry) {
 
 /* lookup in the dns if there is a 'AAAA" match for name */
 static int lookup_aaaa(const char *name, struct in6_addr *addr) {
-	struct iothdns *iothdns = iothdns_init_strcfg(fstack, "");
-	int rv = 0;
-	if (iothdns != NULL) {
-		iothdns_add_nameserver(iothdns, AF_INET6, &fwdaddr[0]);
-		if (iothdns_lookup_aaaa(iothdns, name, addr, 1) > 0)
-			rv = 1;
-		iothdns_fini(iothdns);
+	/* try for local glue first */
+	int rv = cache_static_get_aaaa(name, addr);
+	if (rv == 0) {
+		struct iothdns *iothdns = iothdns_init_strcfg(fstack, "");
+		if (iothdns != NULL) {
+			iothdns_add_nameserver(iothdns, AF_INET6, &fwdaddr[0]);
+			if (iothdns_lookup_aaaa(iothdns, name, addr, 1) > 0)
+				rv = 1;
+			iothdns_fini(iothdns);
+		}
+	}
+	return rv;
+}
+
+/* lookup in the dns if there is a 'A" match for name */
+static int lookup_a(const char *name, struct in_addr *addr) {
+	/* try for local glue first */
+	int rv = cache_static_get_a(name, addr);
+	if (rv == 0) {
+		struct iothdns *iothdns = iothdns_init_strcfg(fstack, "");
+		if (iothdns != NULL) {
+			iothdns_add_nameserver(iothdns, AF_INET6, &fwdaddr[0]);
+			if (iothdns_lookup_a(iothdns, name, addr, 1) > 0)
+				rv = 1;
+			iothdns_fini(iothdns);
+		}
 	}
 	return rv;
 }
@@ -185,17 +204,22 @@ static int lookup_aaaa(const char *name, struct in6_addr *addr) {
 /* convert src addrs like "hash.map.v2.cs.unibo.it/64" to a domain name for reverse queries
  * .0.0.f.f.0.0.e.2.0.6.7.0.1.0.0.2.ip6.arpa using an AAAA query
  * (hash.map.v2.cs.unibo.it has IPv6 address 2001:760:2e00:ff00::) */
-static const char *inet_aaaator(const char *src, char *dst, socklen_t size) {
+static const char *inet_qptor(const char *src, char *dst, socklen_t size) {
 	size_t srclen = strlen(src) + 1;
-  char _src[srclen];
-  char *_prefix;
-  snprintf(_src, srclen, "%s", src);
-  if ((_prefix  = strchr(_src, '/')) != NULL) {
-		struct in6_addr addr;
-    *(_prefix++) = '\0';
-		if (lookup_aaaa(_src, &addr) > 0) {
+	char _src[srclen];
+	char *_prefix;
+	snprintf(_src, srclen, "%s", src);
+	if ((_prefix  = strchr(_src, '/')) != NULL) {
+		struct in6_addr addr6;
+		struct in_addr addr;
+		*(_prefix++) = '\0';
+		if (lookup_aaaa(_src, &addr6) > 0) {
 			int prefix = (_prefix == NULL) ? 128 : strtol(_prefix, NULL, 10);
-			return inet_ntorx(AF_INET6, &addr, prefix, dst, size);
+			return inet_ntorx(AF_INET6, &addr6, prefix, dst, size);
+		}
+		if (lookup_a(_src, &addr) > 0) {
+			int prefix = (_prefix == NULL) ? 32 : strtol(_prefix, NULL, 10);
+			return inet_ntorx(AF_INET, &addr, prefix, dst, size);
 		}
 	}
 	return src;
@@ -323,7 +347,7 @@ int parsercfile(char *path) {
 								addr = inet_ptor(tags[2], revbuf, INET6_REVSTRLEN);
 								/* if it is not a numeric IPv4/IPv6 addr, try to query the DNS */
 								if (addr == tags[2] && strchr(addr, '/') != NULL)
-									addr = inet_aaaator(tags[2], revbuf, INET6_REVSTRLEN);
+									addr = inet_qptor(tags[2], revbuf, INET6_REVSTRLEN);
 							}
 							if (tags[3] != NULL) {
 								if (lookup_aaaa(tags[3], &baseaddrbuf))

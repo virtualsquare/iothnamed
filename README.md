@@ -368,8 +368,16 @@ net       local 192.168.1.0/24
 net       local fc00::/64
 auth      accept local
 
-auth      hash local .hash.local fc00::
-auth      hrev local fc00::/64
+# define the base address as a static record
+auth      static local hash.local
+static    AAAA hash.local fc00::
+
+auth      hash local .hash.local hash.local
+auth      hrev local hash.local/64
+
+# alt. without static definition of the base addr:
+# auth      hash local .hash.local fc00::
+# auth      hrev local fc00::/64
 
 auth      cache local .
 auth      fwd local .
@@ -409,8 +417,12 @@ Here is the `delegated+hash.rc` file:
 ```
 net       world ::/0
 
-auth      hash world .hash.v2.cs.unibo.it 2001:760:2e00:ff00::
-auth      hrev world 2001:760:2e00:ff00::/64
+# define glue record (for base address)
+auth      static world hash.v2.cs.unibo.it
+static    AAAA hash.v2.cs.unibo.it 2001:760:2e00:ff00::
+
+auth      hash world .hash.v2.cs.unibo.it hash.v2.cs.unibo.it
+auth      hrev world hash.v2.cs.unibo.it/64
 
 option hrevmode always
 
