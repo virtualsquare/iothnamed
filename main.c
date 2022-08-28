@@ -20,6 +20,8 @@
  *
  */
 
+#define SPDX_LICENSE "SPDX-License-Identifier: GPL-2.0-or-later"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -432,6 +434,8 @@ int main(int argc, char *argv[])
 	if (optind + 1 != argc)
 		usage(progname);
 	rcfile = argv[optind];
+
+	ioth_set_license(SPDX_LICENSE);
 
 	startlog(progname, daemonize);
 	setsignals();
