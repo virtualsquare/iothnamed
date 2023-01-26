@@ -154,12 +154,12 @@ Authorize/enable the one time ip (otip) based resolution. The name resolution ch
 Only legitimate users knowing the password can compute the current address of a server.
 e.g. Only local queries can have the current address computed using the password `pwd`:
 ```
-          otip local .otip.v2.cs.unibo.it 2003::1 pwd
+          auth      otip local .otip.v2.cs.unibo.it 2003::1 pwd
 ```
 
 * `cache`
 Define which addresses can retrieve cached record. e.g. queries coming from addresses in `local` can
-retieve data for any domain (.):
+retrieve data for any domain (.):
 ```
           auth      cache local .
 ```
