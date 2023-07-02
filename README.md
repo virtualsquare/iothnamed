@@ -103,7 +103,7 @@ issues the name resolution request.
 
 * `auth accept`
 defines the address ranges allowed to use TCP queries
-e.g. only hosts in local (192.168.1.x and 10.0.10.x in the example above) are allowed to send TCP requestsr:
+e.g. only hosts in local (192.168.1.x and 10.0.10.x in the example above) are allowed to send TCP requests:
 ```
           auth      accept local
 ```
@@ -235,7 +235,7 @@ auth      accept local
 auth      static local .test.local
 # clients from 'local' can receive replies for names 1.168.192.in-addr.arpa
 auth      static local 192.168.1.0/24
-# search in the cache (forwardere query results are cached)
+# search in the cache (forwarded query results are cached)
 auth      cache local .
 # requests from 'local' can be forwarded
 auth      fwd local .
@@ -294,7 +294,7 @@ Here is the `delegated.rc` configuration file.
 # the name 'world' matches any IPv6 or IPv4 address.
 net       world ::/0
 
-# the static definition for names xxxx.dom,v2,cs,unibo.it
+# the static definition for names xxxx.dom.v2.cs.unibo.it
 # are available for everybody
 auth      static world .dom.v2.cs.unibo.it
 
