@@ -39,7 +39,7 @@ target_link_libraries(iothnamed ioth iothdns iothconf iothaddr stropt)
 install(TARGETS iothnamed
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-# add_subdirectory(man)
+add_subdirectory(man)
 
 add_custom_target(uninstall
   "${CMAKE_COMMAND}" -P "${PROJECT_SOURCE_DIR}/Uninstall.cmake")
