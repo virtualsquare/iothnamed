@@ -108,16 +108,16 @@ void process_urfd(void) {
 	if (pkt) {
 		struct iothdns_pkt *rpkt = process_dns_req(&h, &sock.sin6_addr);
 		if (rpkt != NULL) {
-			size_t buflen = iothdns_buflen(rpkt);
-			if (buflen > IOTHDNS_UDP_MAXBUF) {
+			struct iovec rpktbuf = iothdns_getbuf(rpkt);
+			if (rpktbuf.iov_len > IOTHDNS_UDP_MAXBUF) {
 				struct iothdns_header th = h;
 				th.flags = FLAGS_TRUNC(th.flags);
 				struct iothdns_pkt *tpkt = iothdns_put_header(&th);
-				*msghdr.msg_iov = (struct iovec) {iothdns_buf(tpkt), iothdns_buflen(tpkt)};
+				*msghdr.msg_iov = iothdns_getbuf(tpkt);
 				ioth_sendmsg(urfd, &msghdr, 0);
 				iothdns_free(tpkt);
 			} else {
-				*msghdr.msg_iov = (struct iovec) {iothdns_buf(rpkt), buflen};
+				*msghdr.msg_iov = rpktbuf;
 				ioth_sendmsg(urfd, &msghdr, 0);
 			}
 			iothdns_free(rpkt);
@@ -157,10 +157,11 @@ void process_uffd(void) {
 		uint8_t ctlbuf[CMSG_PKTINFO_SIZE];
 		if (auth_isactive(AUTH_CACHE))
 			cache_feed(pkt);
+		struct iovec pktbuf = iothdns_getbuf(pkt);
 		struct msghdr msghdr = {
 			.msg_name = &sock,
 			.msg_namelen = sizeof(sock),
-			.msg_iov = &((struct iovec) {iothdns_buf(pkt), iothdns_buflen(pkt)}),
+			.msg_iov = &pktbuf,
 			.msg_iovlen = 1,
 			.msg_control = ctlbuf,
 			.msg_controllen = sizeof(ctlbuf),
@@ -180,7 +181,7 @@ void process_uffd(void) {
 /* TCP forwarder */
 
 /* add the TCP header (length) */
-ssize_t dns_tcp_send(int fd, void *buf, size_t len, int flags) {
+static ssize_t dns_tcp_send(int fd, void *buf, size_t len, int flags) {
   uint8_t hlen[2];
   struct iovec iov[2] = {{hlen, 2},{buf, len}};
   struct msghdr msg = {.msg_iov = iov, .msg_iovlen = 2};
@@ -284,7 +285,8 @@ void process_trfd(void *data) {
 			getpeername(td->fd, (struct sockaddr *)&sock, &socklen);
 			struct iothdns_pkt *rpkt = process_dns_req(&h, &sock.sin6_addr);
 			if (rpkt != NULL) {
-				dns_tcp_send(td->fd, iothdns_buf(rpkt), iothdns_buflen(rpkt), 0);
+				struct iovec rpktbuf = iothdns_getbuf(rpkt);
+				dns_tcp_send(td->fd, rpktbuf.iov_base, rpktbuf.iov_len, 0);
 				iothdns_free(rpkt);
 			} else {
 				/* forward the packet */
@@ -352,12 +354,13 @@ void process_tffd(int index, uint32_t events) {
 				int clientid = dnsreq_get(h.id, h.qname, h.qtype, &fd, NULL);
 				if (clientid >= 0) {
 					iothdns_rewrite_header(pkt, clientid, h.flags);
+					struct iovec pktbuf = iothdns_getbuf(pkt);
 #if FWD_PKT_DUMP
 					printf("%d %d\n",h.id,clientid);
 					printf("========<<<<<<<<<<<<\n");
-					packetdump(stdout, iothdns_buf(pkt), iothdns_buflen(pkt));
+					packetdump(stdout, pktbuf.iov_base, pktbuf.iov_len);
 #endif
-					dns_tcp_send(fd, iothdns_buf(pkt), iothdns_buflen(pkt), 0);
+					dns_tcp_send(fd, pktbuf.iov_base, pktbuf.iov_len, 0);
 				}
 				iothdns_free(pkt);
 				td[index].len = td[index].pos = 0;
