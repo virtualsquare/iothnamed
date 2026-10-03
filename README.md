@@ -9,11 +9,11 @@ hash based IPv6 addresses and OTIP, i.e. one time IP.
 ### Pre-requisites:
 `iothnamed` depends on the following libraries, that must be installed in advance:
 
-* ioth
-* iothdns
-* iothconf
-* iothaddr
-* stropt
+* ioth (https://github.com/virtualsquare/libioth)
+* iothaddr (in the same source tree as libioth here above https://github.com/virtualsquare/libioth)
+* iothdns (https://github.com/virtualsquare/iothdns)
+* iothconf (https://github.com/virtualsquare/iothconf)
+* stropt (https://github.com/rd235/libstropt)
 
 `iothnamed` uses the cmake building system.
 ```
@@ -245,8 +245,8 @@ auth      fwd local .
 static    A one.test.local 192.168.1.1
 static    A two.test.local 192.168.1.2
 # static definitions for reverse resolution
-static    PTR 192.168.1.1 one.test.local 
-static    PTR 192.168.1.2 two.test.local 
+static    PTR 192.168.1.1 one.test.local
+static    PTR 192.168.1.2 two.test.local
 ```
 
 In order to test this configuration start the vde network, e.g.:
@@ -410,7 +410,7 @@ Any name having a `.hash.local` suffix is resolved as a hash based address. In o
 ### hash based IPv6 addresses (with delegation)
 
 The scenario is the combination of the two previous examples.
-In this case the domain hash.v2.cs.unibo.it has been delegated to 
+In this case the domain hash.v2.cs.unibo.it has been delegated to
 2001:760:2e00:ff00::fd and 130.136.31.253, while the reverse resolution of 2001:760:2e00:ff00::/64 has been delegated to 2001:760:2e00:ff00::ff.
 
 Here is the `delegated+hash.rc` file:
